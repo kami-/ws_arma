@@ -1,0 +1,4 @@
+extension/build/*
+!extension/build/CMakeLists.txt
+extension/include/spdlog
+extension/node
