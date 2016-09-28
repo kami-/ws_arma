@@ -13,12 +13,25 @@ namespace extension {
 
 namespace {
     const std::string EMPTY_SQF_MESSAGE_DATA = "\"\"";
-    const std::string SQF_DELIMITER = ":";//"¤¤¤";
+    const std::string SQF_DELIMITER = ":";//"¤";
     Queue<Message> clientMessages;
     Queue<Message> gameMessages;
-    std::atomic<bool> stopped = false;
     std::thread webSocketThread;
+    std::atomic<bool> stopped = false;
+    bool serverRunning = false;
+    int port = 8085;
 }
+
+    void startServer() {
+        if (!serverRunning) {
+            log::logger->info("Starting websocket server.");
+            serverRunning = true;
+            webSocketThread = std::thread(server::run, port);
+        }
+        else {
+            log::logger->info("Websocket server already running.");
+        }
+    }
 
     void respond(char* output, const Message& message) {
         std::string data = fmt::format("[{},{}]", message.id, message.data);
@@ -57,13 +70,13 @@ namespace {
 
 
     bool initialize() {
-        std::string logLevel, port, extensionFolder(getExtensionFolder());
+        std::string logLevelStr, portStr, extensionFolder(getExtensionFolder());
         std::ifstream file(fmt::format("{}\\{}", extensionFolder, "config.txt"));
-        std::getline(file, logLevel);
-        std::getline(file, port);
-        log::initialze(extensionFolder, logLevel);
+        std::getline(file, logLevelStr);
+        std::getline(file, portStr);
+        port = parseUnsigned(portStr, port);
+        log::initialze(extensionFolder, logLevelStr);
         log::logger->info("Starting ws_arma_extension version '{}'.", WS_ARMA_EXTENSION_VERSION);
-        webSocketThread = std::thread(server::run, parseUnsigned(port, 8085));
         return true;
     }
 
@@ -71,6 +84,7 @@ namespace {
         if (stopped) {
             clientMessages.push(Message{ Message::POISON_ID, EMPTY_SQF_MESSAGE_DATA });
             webSocketThread.join();
+            serverRunning = false;
         }
         log::logger->info("Stopped ws_arma_extension version '{}'.", WS_ARMA_EXTENSION_VERSION);
     }
@@ -87,7 +101,12 @@ namespace {
         if (params.size() == 2) {
             uint32_t id = parseUnsigned(params[0], messageId);
             Message gameMessage{ id, params[1] };
-            if (gameMessage.id == Message::GET_ID) {
+            if (gameMessage.id == Message::START_ID) {
+                startServer();
+                respond(output, Message{ Message::EMPTY_ID, EMPTY_SQF_MESSAGE_DATA });
+                return;
+            }
+            else if (gameMessage.id == Message::GET_ID) {
                 if (clientMessages.empty()) {
                     respond(output, Message{ Message::EMPTY_ID, EMPTY_SQF_MESSAGE_DATA });
                     return;

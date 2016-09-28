@@ -16,7 +16,8 @@ namespace wsa {
         static const uint32_t EMPTY_ID = 0;
         static const uint32_t POISON_ID = 1;
         static const uint32_t ERROR_ID = 2;
-        static const uint32_t GET_ID = 3;
+        static const uint32_t START_ID = 3;
+        static const uint32_t GET_ID = 4;
 
         uint32_t id;
         std::string data;
